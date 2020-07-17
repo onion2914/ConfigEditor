@@ -1,0 +1,6 @@
+.vs/
+source/ConfigEditor/bin/
+source/ConfigEditor/obj/
+*.vspscc
+*.vssscc
+*.SCC

@@ -8,6 +8,6 @@ namespace ConfigEditor
 {
     public enum ConfigTokenTypes
     {
-        KeyWord, Operator, Comment, Struct
+        KeyWord, Operator, Comment, Struct, Unset
     }
 }

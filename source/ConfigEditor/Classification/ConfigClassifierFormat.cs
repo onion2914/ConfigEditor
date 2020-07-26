@@ -65,7 +65,7 @@ namespace ConfigEditor.Classification
         /// </summary>
         public ConfigOperatorClassifierFormat()
         {
-            this.DisplayName = "ConfigStruct"; // Human readable version of the name
+            this.DisplayName = "ConfigOperator"; // Human readable version of the name
             this.ForegroundColor = Colors.Green;
         }
     }

@@ -6,6 +6,8 @@ using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Tagging;
 using Microsoft.VisualStudio.Utilities;
+using System.Linq;
+using System.Threading.Tasks;
 
 using System.Text.RegularExpressions;
 
@@ -17,11 +19,21 @@ namespace ConfigEditor
     [TagType(typeof(ConfigTokenTag))]
     internal sealed class ConfigTokenTagProvider : ITaggerProvider
     {
-
+        static Dictionary<ITextBuffer, ConfigTokenTagger> _textBufferDict = new Dictionary<ITextBuffer, ConfigTokenTagger>();
         
         public ITagger<T> CreateTagger<T>(ITextBuffer buffer) where T : ITag
         {
-            return new ConfigTokenTagger(buffer) as ITagger<T>;
+            
+            //一度読みこんだTextBufferは次回呼び出し時に同じインスタンスを返す
+            if (_textBufferDict.ContainsKey(buffer)) return _textBufferDict[buffer] as ITagger<T>;
+
+            ConfigTokenTagger tagger = new ConfigTokenTagger(buffer);
+
+            _textBufferDict.Add(buffer, tagger);
+            return tagger as ITagger<T>;
+            
+
+            //return new ConfigTokenTagger(buffer) as ITagger<T>;
         }
         
     }
@@ -44,6 +56,8 @@ namespace ConfigEditor
         HashSet<string> _configKeywordType;
 
         List<SnapshotSpan> _commentSpans;
+        List<LineTokenTag> _lineTokenTags;
+        List<ConfigStructToken> _configTokens;
 
 
         internal ConfigTokenTagger(ITextBuffer buffer)
@@ -59,7 +73,14 @@ namespace ConfigEditor
 
             _commentSpans = new List<SnapshotSpan>();
 
+            Task task = Task.Run(() => {
+                _lineTokenTags = CreateLineTokenTags(buffer);
+            });
+
             
+
+
+
         }
         
 
@@ -70,118 +91,11 @@ namespace ConfigEditor
         {
             foreach (SnapshotSpan curSpan in spans)
             {
-
-                //ITextSnapshotLine containingLine = curSpan.Start.GetContainingLine();
-                //string lineText = containingLine.GetText();
-                //string tokenText = "";
-                //string commentText = "";
-                //int curLoc = containingLine.Start.Position;
-
-                //List<string> tokens = new List<string>();
-                //List<SnapshotSpan> tokens1 = new List<SnapshotSpan>();
-                //List<SnapshotSpan> tokens2 = new List<SnapshotSpan>(); ///*コメント専用
-                //bool commentArea = false;
-
-                ////トークンリスト生成
-                //int lineStartPosition = containingLine.Start.Position;
-                //int tokenStartIndex = 0;
-                //for (int index = 0; index < lineText.Length; index++)
-                //{
-                //    if (commentArea)
-                //    {
-                //        if (lineText.Substring(index).StartsWith("*/"))
-                //        {
-                //            if (index - tokenStartIndex > 0)
-                //                tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, index + 2 - tokenStartIndex)));
-                //            tokenStartIndex = index + 2;
-                //            commentArea = false;
-                //        }
-                //        continue;
-                //    }
-
-                //    //空白orタブ
-                //    if (Char.IsWhiteSpace(lineText[index]))
-                //    {
-                //        if (index - tokenStartIndex > 0)
-                //            tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, index - tokenStartIndex)));
-                //        tokenStartIndex = index + 1;
-                //    }
-                //    else if (lineText.Substring(index).StartsWith("//"))
-                //    {
-                //        if (index - tokenStartIndex > 0)
-                //            tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, index - tokenStartIndex)));
-                //        tokenStartIndex = index;
-                //        tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, lineText.Length - tokenStartIndex)));
-                //        break;
-                //    }
-                //    else if (lineText.Substring(index).StartsWith("/*"))
-                //    {
-                //        if (index - tokenStartIndex > 0)
-                //            tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, index - tokenStartIndex)));
-                //        tokenStartIndex = index;
-                //        commentArea = true;
-                //    }
-                //}
-
-                ////*/が見つからず行が終了した場合
-                //if (commentArea)
-                //{
-                //    tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, lineText.Length - tokenStartIndex)));
-                //    //ITextSnapshotLine nextLine = curSpan.Snapshot.GetLineFromLineNumber(containingLine.LineNumber + 1);
-                //    //_commentSpans.Add(new SnapshotSpan(curSpan.Snapshot, new Span(nextLine.Start, nextLine.Length)));
-                //}
-                //else
-                //{
-                //    tokens1.Add(new SnapshotSpan(curSpan.Snapshot, new Span(lineStartPosition + tokenStartIndex, lineText.Length - tokenStartIndex)));
-                //}
-
-
                 ITextSnapshotLine containingLine = curSpan.Start.GetContainingLine();
                 string tokenText = curSpan.GetText();
                 //トークンリスト生成
                 string[] tokens = tokenText.ToLower().Split(null);   //nullを与えると空白文字で分割
                 int currentIndex = curSpan.Start.Position;
-
-                //foreach (var configToken in tokens1)
-                //{
-                //    bool comment=false;
-
-
-
-                //    if (comment) continue;
-
-
-                //    if (configToken.GetText().StartsWith("//") || configToken.GetText().StartsWith("/*"))
-                //    {
-                //        if (configToken.IntersectsWith(curSpan))
-                //            yield return new TagSpan<ConfigTokenTag>(configToken,
-                //                                                      new ConfigTokenTag(ConfigTokenTypes.Comment));
-                //    }
-                //    else if (_configKeywordType.Contains(configToken.GetText()))
-                //    {
-                //        if (configToken.IntersectsWith(curSpan))
-                //            yield return new TagSpan<ConfigTokenTag>(configToken,
-                //                                                  new ConfigTokenTag(_configTypes["keyword"]));
-                //    }
-                //    else if (_configTypes.ContainsKey(configToken.GetText()))
-                //    {
-                //        if (configToken.IntersectsWith(curSpan))
-                //            yield return new TagSpan<ConfigTokenTag>(configToken,
-                //                                                  new ConfigTokenTag(_configTypes[configToken.GetText()]));
-                //    }
-
-                //    //add an extra char location because of the space
-                //    curLoc += configToken.Length + 1;
-                //}
-
-                //foreach (var configToken in tokens2)
-                //{
-
-                //    if (configToken.IntersectsWith(curSpan))
-                //        yield return new TagSpan<ConfigTokenTag>(configToken,
-                //                                                  new ConfigTokenTag(ConfigTokenTypes.Comment));
-                //}
-
 
                 bool structToken = false;
                 foreach (string configToken in tokens)
@@ -205,30 +119,116 @@ namespace ConfigEditor
                     }
                     
 
-                    //else if (_configTypes.ContainsKey(configToken))
-                    //{
-                    //    var tokenSpan = new SnapshotSpan(curSpan.Snapshot, new Span(currentIndex, configToken.Length));
-                    //    if (tokenSpan.IntersectsWith(curSpan))
-                    //        yield return new TagSpan<ConfigTokenTag>(tokenSpan,
-                    //                                              new ConfigTokenTag(_configTypes[configToken]));
-                    //}
-
-                    //add an extra char location because of the space
                     currentIndex += configToken.Length + 1;
                 }
 
 
-                ////コメントを分類
-                //if (!string.IsNullOrEmpty(commentText)) {
-                //    var tokenSpan = new SnapshotSpan(curSpan.Snapshot, new Span(curLoc - 1, commentText.Length));
-                //    yield return new TagSpan<ConfigTokenTag>(tokenSpan,
-                //                                                  new ConfigTokenTag(ConfigTokenTypes.Comment));
-
-                //    curLoc += commentText.Length;
-                //}
             }
 
         }
 
+        private List<LineTokenTag> CreateLineTokenTags(ITextBuffer buffer)
+        {
+            ITextSnapshot snapshot = _buffer.CurrentSnapshot;
+            //var lineTokenTags = new List<LineTokenTag>();
+
+            List<LineTokenTag> lineTokenTags = new List<LineTokenTag>();
+            LineTokenTag prev = null;
+
+            foreach (var line in snapshot.Lines) {
+                var tmp = new LineTokenTag(line, prev);
+                lineTokenTags.Add(tmp);
+                prev = tmp;
+            }
+
+            _configTokens = ParseConfigToken(lineTokenTags);
+
+            return lineTokenTags;
+            //return snapshot.Lines.Select(line => new LineTokenTag(line, )).ToList();          
+        }
+
+
+        private List<ConfigStructToken> ParseConfigToken(IList<LineTokenTag> tags)
+        {
+            List<ConfigStructToken> configTokens = new List<ConfigStructToken>();
+
+            //var e = tags.SelectMany(tag => tag.TokenTags).Where(tokentag => tokentag.Tag.type != ConfigTokenTypes.Comment).GetEnumerator();
+
+            //コメント以外のタグを抽出
+            var e = (from linetags in tags
+                    from tokentag in linetags.TokenTags
+                    where tokentag.Tag.type != ConfigTokenTypes.Comment
+                    select tokentag).GetEnumerator();
+                    
+
+            try {
+
+
+                while (e.MoveNext()) {
+                    string token = e.Current.Text;
+                    if (token == "struct") {
+                        configTokens.Add(ParseStructToken(e));
+                    }
+                }
+            } catch (Exception ex) {
+
+            } finally {
+                e.Dispose();
+            }
+
+            return configTokens;
+        }
+
+        private ConfigStructToken ParseStructToken(IEnumerator<ConfigTagSpan<ConfigTokenTag>> enumerator)
+        {
+            if (!enumerator.MoveNext()) throw new Exception();
+
+            string structName = enumerator.Current.Text;
+            //ConfigStructToken configToken = new ConfigStructToken(enumerator.Current.Text);
+            ConfigStructToken configToken = null;
+
+            if (!enumerator.MoveNext()) throw new Exception();
+            
+            if (enumerator.Current.Text == ":") {
+                if (!enumerator.MoveNext()) throw new Exception();
+
+                configToken = new ConfigStructToken(structName, enumerator.Current.Text);
+
+                if (!enumerator.MoveNext()) throw new Exception();
+            }
+
+            configToken = configToken ?? new ConfigStructToken(structName);
+
+            if (enumerator.Current.Text != "{") throw new Exception();
+
+
+            if (!enumerator.MoveNext()) throw new Exception();
+            while (enumerator.Current.Text != "};") {
+                string type = enumerator.Current.Text;
+
+                if (!enumerator.MoveNext()) throw new Exception();
+
+                string name = enumerator.Current.Text;
+                if (!name.EndsWith(";")) throw new Exception();
+
+                //フィールドメンバ追加
+                configToken.Add(new ConfigStructFieldToken(type, name.TrimEnd(';')));
+
+                if (!enumerator.MoveNext()) throw new Exception();
+            }
+
+            return configToken;
+        }   
+
+    }
+
+    public class ConfigTagSpan<T> : TagSpan<T> where T : ConfigTokenTag
+    {
+        public string Text { get; private set; }
+
+        public ConfigTagSpan(SnapshotSpan span, T tag, string text) : base(span, tag)
+        {
+            Text = text;
+        }
     }
 }

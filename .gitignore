@@ -1,6 +1,7 @@
 .vs/
 source/ConfigEditor/bin/
 source/ConfigEditor/obj/
+source/packages/
 *.vspscc
 *.vssscc
 *.SCC

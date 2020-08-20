@@ -1,7 +1,8 @@
 .vs/
 source/ConfigEditor/bin/
 source/ConfigEditor/obj/
-source/packages/
+source/packages/*
+!Microsoft.VSSDK.BuildTools.15.9.3043/
 *.vspscc
 *.vssscc
 *.SCC
